@@ -1,0 +1,187 @@
+// Prisma Schema v1 — KeyVault Comics
+// This schema is derived directly from the Domain Model (DDD-lite)
+// Focus: correctness, clarity, future scalability
+
+// -----------------------------
+// Generator & Datasource
+// -----------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------
+// Enums (Explicit business states)
+// -----------------------------
+
+enum ComicStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  FAILED
+  REFUNDED
+}
+
+enum CustomerRole {
+  BUYER
+  CONSIGNOR
+  BOTH
+}
+
+// -----------------------------
+// Core Entities
+// -----------------------------
+
+model Comic {
+  id                  String      @id @default(uuid())
+
+  // Descriptive data
+  title               String
+  publisher           String
+  series              String
+  issueNumber          String
+  publicationYear     Int
+
+  // Collectible metadata
+  keyIssueType        String?     // first appearance, death, cameo, etc.
+  variantType         String?     // standard, variant, incentive
+
+  // Grading
+  isGraded             Boolean     @default(false)
+  gradingCompany       String?
+  gradeScore           Float?
+  certificationNumber  String?
+
+  // Commerce
+  price               Decimal     @db.Decimal(10,2)
+  currency            String      // EUR, USD, GBP
+  status              ComicStatus @default(AVAILABLE)
+
+  // Relations
+  inventory            Inventory?
+  orderItem            OrderItem?
+
+  // Audit
+  createdAt            DateTime    @default(now())
+
+  @@index([status])
+}
+
+// -----------------------------
+// Inventory (1-to-1 with Comic)
+// -----------------------------
+
+model Inventory {
+  id          String   @id @default(uuid())
+  comicId     String   @unique
+
+  quantity    Int      @default(1)
+  location    String   // warehouse | consignment
+
+  comic       Comic    @relation(fields: [comicId], references: [id])
+
+  createdAt   DateTime @default(now())
+}
+
+// -----------------------------
+// Cart (Ephemeral, reservation-based)
+// -----------------------------
+
+model Cart {
+  id          String     @id @default(uuid())
+  customerId  String?
+
+  expiresAt   DateTime
+
+  items       CartItem[]
+
+  createdAt   DateTime   @default(now())
+}
+
+model CartItem {
+  id        String @id @default(uuid())
+  cartId    String
+  comicId   String @unique // Ensures a comic is in only one active cart
+
+  cart      Cart   @relation(fields: [cartId], references: [id])
+  comic     Comic  @relation(fields: [comicId], references: [id])
+}
+
+// -----------------------------
+// Order & Order Items
+// -----------------------------
+
+model Order {
+  id            String      @id @default(uuid())
+  customerId    String?
+
+  totalAmount   Decimal     @db.Decimal(10,2)
+  currency      String
+  status        OrderStatus @default(CREATED)
+
+  items         OrderItem[]
+  payments      Payment[]
+
+  createdAt     DateTime    @default(now())
+}
+
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String
+  comicId   String @unique // One comic can belong to only one order
+
+  order     Order  @relation(fields: [orderId], references: [id])
+  comic     Comic  @relation(fields: [comicId], references: [id])
+}
+
+// -----------------------------
+// Payments (Async, event-driven)
+// -----------------------------
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+
+  provider      String        // Stripe, PayPal, etc.
+  providerRef   String        // PaymentIntent ID
+
+  amount        Decimal       @db.Decimal(10,2)
+  currency      String
+  status        PaymentStatus @default(PENDING)
+
+  order         Order         @relation(fields: [orderId], references: [id])
+
+  createdAt     DateTime      @default(now())
+}
+
+// -----------------------------
+// Customer
+// -----------------------------
+
+model Customer {
+  id          String        @id @default(uuid())
+  name        String
+  email       String        @unique
+
+  role        CustomerRole  @default(BUYER)
+
+  createdAt   DateTime      @default(now())
+}
