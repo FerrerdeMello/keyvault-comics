@@ -1,0 +1,156 @@
+// Prisma Schema v1 — KeyVault Comics (Atualizado)
+// Relacionamentos corrigidos e pronto para migrations
+// Foco: clareza, escalabilidade e uso com Reservation Flow
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------
+// Enums
+// -----------------------------
+enum ComicStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  FAILED
+  REFUNDED
+}
+
+enum CustomerRole {
+  BUYER
+  CONSIGNOR
+  BOTH
+}
+
+// -----------------------------
+// Core Entities
+// -----------------------------
+model Comic {
+  id                  String      @id @default(uuid())
+  title               String
+  publisher           String
+  series              String
+  issueNumber         String
+  publicationYear     Int
+  keyIssueType        String?
+  variantType         String?
+  isGraded            Boolean     @default(false)
+  gradingCompany      String?
+  gradeScore          Float?
+  certificationNumber String?
+  price               Decimal     @db.Decimal(10,2)
+  currency            String
+  status              ComicStatus @default(AVAILABLE)
+
+  // Relações
+  inventory           Inventory?
+  orderItem           OrderItem?
+  cartItem            CartItem?   @relation("ComicInCart") // relação corrigida
+
+  createdAt           DateTime    @default(now())
+
+  @@index([status])
+}
+
+// -----------------------------
+// Inventory (1-1 com Comic)
+model Inventory {
+  id        String   @id @default(uuid())
+  comicId   String   @unique
+  quantity  Int      @default(1)
+  location  String   // warehouse | consignment
+
+  comic     Comic    @relation(fields: [comicId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// -----------------------------
+// Cart (Reservation)
+model Cart {
+  id         String     @id @default(uuid())
+  customerId String?
+
+  expiresAt  DateTime
+  items      CartItem[]
+
+  createdAt  DateTime   @default(now())
+}
+
+model CartItem {
+  id      String @id @default(uuid())
+  cartId  String
+  comicId String @unique // Um comic só pode estar em um cart ativo
+
+  cart    Cart   @relation(fields: [cartId], references: [id])
+  comic   Comic  @relation("ComicInCart", fields: [comicId], references: [id])
+}
+
+// -----------------------------
+// Order & OrderItem
+model Order {
+  id          String      @id @default(uuid())
+  customerId  String?
+  totalAmount Decimal     @db.Decimal(10,2)
+  currency    String
+  status      OrderStatus @default(CREATED)
+
+  items       OrderItem[]
+  payments    Payment[]
+
+  createdAt   DateTime    @default(now())
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId String
+  comicId String @unique // Um comic só pode estar em um pedido
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  comic   Comic  @relation(fields: [comicId], references: [id])
+}
+
+// -----------------------------
+// Payment
+model Payment {
+  id          String        @id @default(uuid())
+  orderId     String
+  provider    String        // Stripe, PayPal, etc.
+  providerRef String        // PaymentIntent ID
+  amount      Decimal       @db.Decimal(10,2)
+  currency    String
+  status      PaymentStatus @default(PENDING)
+
+  order       Order         @relation(fields: [orderId], references: [id])
+
+  createdAt   DateTime      @default(now())
+}
+
+// -----------------------------
+// Customer
+model Customer {
+  id        String       @id @default(uuid())
+  name      String
+  email     String       @unique
+  role      CustomerRole @default(BUYER)
+
+  createdAt DateTime     @default(now())
+}
