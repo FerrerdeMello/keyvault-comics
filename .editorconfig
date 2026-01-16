@@ -1,12 +1,45 @@
-# EditorConfig is awesome: https://EditorConfig.org
+# EditorConfig maintains consistent encoding styles across different editors and IDEs
+# Official documentation: https://editorconfig.org/
 
-# top-most EditorConfig file
+# Indicates that this is the root EditorConfig file
 root = true
 
+# Settings for all files
 [*]
-indent_style = space
-indent_size = 2
-end_of_line = crlf
+# Charset: UTF-8 is the universal standard for supporting international characters
 charset = utf-8
+
+# End of Line: LF (\n) is the modern Unix/Linux/Mac standard
+# CRLF (\r\n) is Windows, but LF works on all modern systems
+end_of_line = lf
+
+# Insert Final Newline: POSIX compliance - files must end with a newline
+# Source: https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_206
+insert_final_newline = true
+
+# Indent Style: Spaces are more consistent across editors than tabs
+indent_style = space
+
+# Indent Size: 2 spaces is the JavaScript/React community standard
+
+# Reference: Airbnb Style Guide, Google JavaScript Style Guide
+indent_size = 2
+
+# Trim Trailing Whitespace: Removes unnecessary whitespace
+# Improves diffs in Git and prevents inconsistencies
+trim_trailing_whitespace = true
+
+# Specific setting for Markdown files
+# Justification: Some Markdown formatters use trailing spaces for line breaks
+[*.md]
 trim_trailing_whitespace = false
-insert_final_newline = false
+max_line_length = off
+
+# Setting for JSON and YAML files
+[*.{json,yml,yaml}]
+indent_size = 2
+
+# Setting specifically for package.json
+# npm uses 2 spaces by default
+[package.json]
+indent_size = 2
