@@ -1,4 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class ReservationsService {}
+export class ReservationsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  findAll() {
+    return this.prisma.reservation.findMany();
+  }
+
+  create(title: string) {
+    return this.prisma.reservation.create({
+      data: { title },
+    });
+  }
+}
